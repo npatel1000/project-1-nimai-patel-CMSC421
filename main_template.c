@@ -1,8 +1,8 @@
 /*
 project: 01
-author: 
-email: 
-student id: 
+author: Nimai Patel 
+email: npatel17@umbc.edu
+student id: GN38452
 description: a simple linux shell designed to perform basic linux commands
 */
 
@@ -37,9 +37,13 @@ int main(int argc, char **argv)
     until the user enters the "exit" command.
     */
 
-    /*
-    ENTER YOUR CODE HERE
-    */
+    if (argc > 1) {
+    	fprintf(stderr, "Arguments not supported. Exiting.\n");
+    	return 1;
+    }
+    
+    user_prompt_loop; //enter main shell loop
+    return 0;
 }
 
 /*
@@ -51,7 +55,7 @@ send it to the execute_command() function. If the user decides to exit, then exi
 with the user given value. 
 */
 
-/*user_prompt_loop()*/
+void user_prompt_loop()
 {
     // initialize variables
 
@@ -100,9 +104,35 @@ with the user given value.
         or any other useful functions
     */
 
-    /*
-    ENTER YOUR CODE HERE
-    */
+    char *command = NULL;
+    char **parsed_command = NULL;
+
+    while (1) {
+        printf(">> ");
+        command = get_user_command();
+
+        if (!command) continue; //for empty inputs
+
+        parsed_command = parse_command(command);
+
+        //check built-in commands 
+        if (strcmp(parsed_command[0], "exit") == 0) {
+            if (parsed_command[1]) {
+                fprintf(stderr, "Invalid exit command. Usage: exit\n");
+            } else {
+                free(command);
+                free(parsed_command);
+                exit(0);  //exit shell
+            }
+        } else if (strncmp(parsed_command[0], "/proc", 5) == 0) {
+            handle_proc_command(parsed_command);
+        } else {
+            execute_command(parsed_command);
+        }
+
+        free(command);
+        free(parsed_command);
+    }
 }
 
 /*
@@ -110,16 +140,25 @@ get_user_command():
 Take input of arbitrary size from the user and return to the user_prompt_loop()
 */
 
-/*get_user_command()*/
+char *get_user_command()
 {
     /*
     Functions you may need: 
         malloc(), realloc(), getline(), fgetc(), or any other similar functions
     */
 
-    /*
-    ENTER YOUR CODE HERE
-    */
+char *command = NULL;
+    size_t len = 0;
+
+    if (getline(&command, &len, stdin) == -1) {
+        if (feof(stdin)) {
+            exit(0); 
+        } else {
+            perror("getline");
+        }
+    }
+
+    return command;
 }
 
 /*
