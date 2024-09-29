@@ -221,22 +221,54 @@ void execute_command(char **args)
 }
 
 void handle_proc_command(char **args) {
-    char path[256];
-    snprintf(path, sizeof(path), "%s", args[0]);
+    char path[256]; //file path buffer
+    snprintf(path, sizeof(path), "%s", args[0]); //create file path
 
-    FILE *file = fopen(path, "r");
+    FILE *file = fopen(path, "r"); //open /proc to read
     if (!file) {
-        perror("fopen");
+        perror("fopen"); //error; file cannot be opened
         return;
     }
 
-    char *line = NULL;
-    size_t len = 0;
-    while (getline(&line, &len, file) != -1) {
+    char *line = NULL; //buffer for each line
+    size_t len = 0; //length of buffer
+    while (getline(&line, &len, file) != -1) { //read and print each line
         printf("%s", line);
     }
 
-    fclose(file);
-    free(line);
+    fclose(file); //close file
+    free(line); //free allocated buffer
 }
+
+void add_to_history(char *command) {
+    FILE *history_file = fopen(".421sh", "a"); //open file in append mode
+    if (!history_file) {
+        perror("fopen"); //error; file cannot be opened
+        return;
+    }
+
+    fprintf(history_file, "%s\n", command); //write command to file
+    fclose(history_file); //close file
+}
+
+void display_history() {
+    FILE *history_file = fopen(".421sh", "r"); //open file in read mode
+    if (!history_file) {
+        perror("fopen"); //error; file cannot be opened
+        return;
+    }
+
+    char *line = NULL; //buffer for each command
+    size_t len = 0; //length of buffer
+    int count = 0; //counting number of commands
+    
+    while (getline(&line, &len, history_file) != -1 && count < 10) { //read and display up to 10 lines
+        printf("%s", line);
+        count++;
+    }
+
+    fclose(history_file); //close file
+    free(line); //free allocated buffer
+}
+
 
