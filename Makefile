@@ -1,5 +1,5 @@
 # Add the names of your .c files from your assignment here.
-SRCS = simple_shell.c utils.c
+SRCS = main_template.c utils.c
 
 # This line is the name of the program you are building
 BIN = simple_shell

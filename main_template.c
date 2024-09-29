@@ -19,13 +19,11 @@ In this project, you are going to implement a number of functions to
 create a simple linux shell interface to perform basic linux commands
 */
 
-/* 
-DEFINE THE FUNCTION PROTOTYPES
-user_prompt_loop()
-get_user_command()
-parse_command()
-execute_command()
-*/
+void user_prompt_loop();
+char *get_user_command();
+char **parse_command(char *input);
+void execute_command(char **args);
+void handle_proc_command(char **args);
 
 int main(int argc, char **argv)
 {
@@ -42,7 +40,7 @@ int main(int argc, char **argv)
     	return 1;
     }
     
-    user_prompt_loop; //enter main shell loop
+    user_prompt_loop(); //enter main shell loop
     return 0;
 }
 
@@ -116,14 +114,14 @@ void user_prompt_loop()
         parsed_command = parse_command(command); //parse command into arguements
 
         if (strcmp(parsed_command[0], "exit") == 0) { //check built-in commands 
-            if (parsed_command[1]) {
-                fprintf(stderr, "Invalid exit command. Usage: exit\n"); //print this if the command has arguements
-            } else {
-                free(command); //free allocated memory
-                free(parsed_command);
-                exit(0);  //exit shell
-            }
-        } else if (strncmp(parsed_command[0], "/proc", 5) == 0) { //if command starts with "/proc"
+        	if (parsed_command[1]) {
+        		fprintf(stderr, "Invalid exit command. Usage: exit\n"); //print this if the command has arguments
+    		} else {
+        	free(command); //free allocated memory
+        	free(parsed_command);
+        	exit(0);  //exit shell
+    		}
+	} else if (strncmp(parsed_command[0], "/proc", 5) == 0) { //if command starts with "/proc"
             handle_proc_command(parsed_command); //reading "/proc" files
         } else {
             execute_command(parsed_command); //execute command
@@ -145,15 +143,18 @@ char *get_user_command()
     Functions you may need: 
         malloc(), realloc(), getline(), fgetc(), or any other similar functions
     */
+    
+    char *command = NULL; //pointer for unput
+    size_t len = 0; //intial size of buffer
 
-char *command = NULL; //pointer for input
-    size_t len = 0; //initial size of buffer
-
-    if (getline(&command, &len, stdin) == -1) { //read command from user
+    if (getline(&command, &len, stdin) == -1) { //read command from stdin
         if (feof(stdin)) {
-            exit(0); //exit shell incase of Ctrl + D
+            free(command); //free allocated memory
+            exit(0); //exit in case of Ctrl + D
         } else {
             perror("getline"); //print error message
+            free(command);  //free allocated memory
+            return NULL; //return null if error
         }
     }
 
@@ -178,15 +179,22 @@ char **parse_command(char *input)
         malloc(), realloc(), free(), strlen(), first_unquoted_space(), unescape()
     */
 
-int pos = 0; //position in parsed array
-    char **tokens = malloc(sizeof(char *) * 10); //initial size for tokens
-    char *token = strtok(input, " "); //splitting input by spaces
+    int pos = 0;
+    int buffer_size = 10;  //set buffer size to 10
+    char **tokens = malloc(sizeof(char *) * buffer_size); //allocate memory array
+    char *token = strtok(input, " "); //split input with spaces
 
-    while (token != NULL) { //continue splitting into tokens
+    while (token != NULL) { //cotinue splitting into tokens
         tokens[pos++] = strdup(token); //copy tokens into array
+
+        if (pos >= buffer_size) { //reallocate memory if buffer size is exceeded
+            buffer_size += 10;  //increase buffer size by 10
+            tokens = realloc(tokens, sizeof(char *) * buffer_size);
+        }
+
         token = strtok(NULL, " "); //get next token
     }
-    tokens[pos] = NULL;  //null-terminate array
+    tokens[pos] = NULL;  //terminate array
 
     return tokens;
 }
