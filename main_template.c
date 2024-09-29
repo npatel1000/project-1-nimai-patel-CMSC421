@@ -219,3 +219,24 @@ void execute_command(char **args)
         wait(NULL);
     }
 }
+
+void handle_proc_command(char **args) {
+    char path[256];
+    snprintf(path, sizeof(path), "%s", args[0]);
+
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        perror("fopen");
+        return;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, file) != -1) {
+        printf("%s", line);
+    }
+
+    fclose(file);
+    free(line);
+}
+
