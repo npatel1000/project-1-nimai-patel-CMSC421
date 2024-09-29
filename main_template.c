@@ -37,8 +37,8 @@ int main(int argc, char **argv)
     until the user enters the "exit" command.
     */
 
-    if (argc > 1) {
-    	fprintf(stderr, "Arguments not supported. Exiting.\n");
+    if (argc > 1) { //check if more than 1 arguement is passed to shell
+    	fprintf(stderr, "Arguments not supported. Exiting.\n"); //print error message
     	return 1;
     }
     
@@ -104,33 +104,32 @@ void user_prompt_loop()
         or any other useful functions
     */
 
-    char *command = NULL;
-    char **parsed_command = NULL;
+    char *command = NULL; //user's input command
+    char **parsed_command = NULL; //parsed components of command
 
-    while (1) {
-        printf(">> ");
-        command = get_user_command();
+    while (1) { //infinite loop prompting user for commands
+        printf(">> "); //print shell prompt
+        command = get_user_command(); //get user command
 
-        if (!command) continue; //for empty inputs
+        if (!command) continue; //continue for empty inputs
 
-        parsed_command = parse_command(command);
+        parsed_command = parse_command(command); //parse command into arguements
 
-        //check built-in commands 
-        if (strcmp(parsed_command[0], "exit") == 0) {
+        if (strcmp(parsed_command[0], "exit") == 0) { //check built-in commands 
             if (parsed_command[1]) {
-                fprintf(stderr, "Invalid exit command. Usage: exit\n");
+                fprintf(stderr, "Invalid exit command. Usage: exit\n"); //print this if the command has arguements
             } else {
-                free(command);
+                free(command); //free allocated memory
                 free(parsed_command);
                 exit(0);  //exit shell
             }
-        } else if (strncmp(parsed_command[0], "/proc", 5) == 0) {
-            handle_proc_command(parsed_command);
+        } else if (strncmp(parsed_command[0], "/proc", 5) == 0) { //if command starts with "/proc"
+            handle_proc_command(parsed_command); //reading "/proc" files
         } else {
-            execute_command(parsed_command);
+            execute_command(parsed_command); //execute command
         }
 
-        free(command);
+        free(command); //free allocated memory
         free(parsed_command);
     }
 }
@@ -147,14 +146,14 @@ char *get_user_command()
         malloc(), realloc(), getline(), fgetc(), or any other similar functions
     */
 
-char *command = NULL;
-    size_t len = 0;
+char *command = NULL; //pointer for input
+    size_t len = 0; //initial size of buffer
 
-    if (getline(&command, &len, stdin) == -1) {
+    if (getline(&command, &len, stdin) == -1) { //read command from user
         if (feof(stdin)) {
-            exit(0); 
+            exit(0); //exit shell incase of Ctrl + D
         } else {
-            perror("getline");
+            perror("getline"); //print error message
         }
     }
 
@@ -172,16 +171,24 @@ Example:
     parsed output: ["echo", "hello", "world", NULL]
 */
 
-/*parse_command()*/
+char **parse_command(char *input)
 {
     /*
     Functions you may need: 
         malloc(), realloc(), free(), strlen(), first_unquoted_space(), unescape()
     */
 
-    /*
-    ENTER YOUR CODE HERE
-    */
+int pos = 0; //position in parsed array
+    char **tokens = malloc(sizeof(char *) * 10); //initial size for tokens
+    char *token = strtok(input, " "); //splitting input by spaces
+
+    while (token != NULL) { //continue splitting into tokens
+        tokens[pos++] = strdup(token); //copy tokens into array
+        token = strtok(NULL, " "); //get next token
+    }
+    tokens[pos] = NULL;  //null-terminate array
+
+    return tokens;
 }
 
 /*
@@ -190,14 +197,25 @@ Execute the parsed command if the commands are neither /proc nor exit;
 fork a process and execute the parsed command inside the child process
 */
 
-/*execute_command()*/
+void execute_command(char **args)
 {
     /*
     Functions you may need: 
         fork(), execvp(), waitpid(), and any other useful function
     */
 
-    /*
-    ENTER YOUR CODE HERE
-    */
+    pid_t pid = fork(); //creating child process
+
+    if (pid == 0) { //replace process with command for child process
+        if (execvp(args[0], args) == -1) {
+            perror("execvp"); //error message
+        }
+        exit(EXIT_FAILURE); //exit child process
+    } else if (pid < 0) {
+        //if error forking
+        perror("fork");
+    } else {
+        //parent process waits on child process
+        wait(NULL);
+    }
 }
