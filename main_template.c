@@ -19,11 +19,13 @@ In this project, you are going to implement a number of functions to
 create a simple linux shell interface to perform basic linux commands
 */
 
+void display_history();
 void user_prompt_loop();
 char *get_user_command();
 char **parse_command(char *input);
 void execute_command(char **args);
 void handle_proc_command(char **args);
+void add_to_history(char *command);
 
 int main(int argc, char **argv)
 {
@@ -123,7 +125,9 @@ void user_prompt_loop()
             free(parsed_command);
             continue;  //prompt again 
         }
-
+	
+	add_to_history(command); //add command to history
+	
         if (strcmp(parsed_command[0], "exit") == 0) { //check built-in commands 
         	if (parsed_command[1]) {
         		fprintf(stderr, "Invalid exit command! Try: exit\n"); //print this if the command has arguments
@@ -132,10 +136,12 @@ void user_prompt_loop()
         		free(parsed_command);
         		exit(0);  //exit shell
     		}
-	} else if (strncmp(parsed_command[0], "/proc", 5) == 0) { //if command starts with "/proc"
-		handle_proc_command(parsed_command); //reading "/proc" files
+        } else if (strcmp(parsed_command[0], "display_history") == 0) {
+		display_history();  //display history
+        } else if (strncmp(parsed_command[0], "/proc", 5) == 0 && parsed_command[1] != NULL) { //if command starts with "/proc"
+		handle_proc_command(parsed_command);
         } else {
-            execute_command(parsed_command); //execute command
+		execute_command(parsed_command); //execute external command
         }
 
         free(command); //free allocated memory
@@ -260,7 +266,7 @@ void handle_proc_command(char **args) {
         return;
     }
 
-    char *line = NULL; //read and print lines
+    char *line = NULL; //buffer for each line
     size_t len = 0;
     while (getline(&line, &len, file) != -1) {
 	printf("%s", line);  //print lines
