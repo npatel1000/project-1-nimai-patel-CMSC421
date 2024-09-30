@@ -139,7 +139,7 @@ void user_prompt_loop()
         } else if (strcmp(parsed_command[0], "display_history") == 0) {
 		display_history();  //display history
         } else if (strncmp(parsed_command[0], "/proc", 5) == 0 && parsed_command[1] != NULL) { //if command starts with "/proc"
-		handle_proc_command(parsed_command);
+		handle_proc_command(parsed_command); //handle /proc command
         } else {
 		execute_command(parsed_command); //execute external command
         }
@@ -174,10 +174,16 @@ char *get_user_command()
             return NULL; //return null if error
         }
     }
+    
+    if (command[strlen(command) - 1] == '\n') { //remove new line
+        command[strlen(command) - 1] = '\0';
+    }
 
     return command;
 }
 
+char **parse_command(char *input) 
+{
 /*
 parse_command():
 Take command grabbed from the user and parse appropriately.
@@ -189,35 +195,40 @@ Example:
     parsed output: ["echo", "hello", "world", NULL]
 */
 
-char **parse_command(char *input)
-{
-    /*
-    Functions you may need: 
-        malloc(), realloc(), free(), strlen(), first_unquoted_space(), unescape()
-    */
-
     int pos = 0;
-    int buffer_size = 10;  //set buffer size to 10
-    char **tokens = malloc(sizeof(char *) * buffer_size); //allocate memory array
-    if (!tokens) {  //check for malloc fail
+    int buffer_size = 10;
+    char **tokens = malloc(sizeof(char *) * buffer_size); //allocate memory for tokens
+
+    if (!tokens) {
         fprintf(stderr, "Error! Memory allocation failed!\n");
         return NULL;
     }
 
-    char *token = strtok(input, " ");  //split input with spaces
-
+    char *token = strtok(input, " "); //split input with spaces
     while (token != NULL) {
-        tokens[pos++] = strdup(token);  //duplicate into arrays
+        tokens[pos] = strdup(token); //duplicate token
+        if (!tokens[pos]) { //check strdup failure
+            fprintf(stderr, "Error! Memory allocation failed!\n");
+            for (int i = 0; i < pos; i++) {
+                free(tokens[i]); //free allocated tokens
+            }
+            free(tokens); //free tokens array
+            return NULL;
+        }
+        pos++;
 
-        if (pos >= buffer_size) { //if buffer size is exceeded, reallocate
+        if (pos >= buffer_size) { //reallocate if buffer size exceeded
             buffer_size += 10;
             char **new_tokens = realloc(tokens, sizeof(char *) * buffer_size);
-            if (!new_tokens) {  //check realloc
+            if (!new_tokens) { // Handle realloc failure
                 fprintf(stderr, "Error! Memory allocation failed!\n");
-                free(tokens);  //free allocated memory
+                for (int i = 0; i < pos; i++) {
+                    free(tokens[i]); //free allocated tokens
+                }
+                free(tokens); //free tokens array
                 return NULL;
             }
-            tokens = new_tokens;  //assign new reallocated memory
+            tokens = new_tokens; //assign new allocated memory
         }
 
         token = strtok(NULL, " "); //get next token
@@ -243,6 +254,7 @@ void execute_command(char **args)
     pid_t pid = fork(); //creating child process
 
     if (pid == 0) { //replace process with command for child process
+    
         if (execvp(args[0], args) == -1) {
             perror("execvp"); //error message
         }
@@ -256,55 +268,66 @@ void execute_command(char **args)
 }
 
 void handle_proc_command(char **args) {
-    char path[256]; //file path buffer
-    
-    snprintf(path, sizeof(path), "%s", args[0]); //create file path
-
-    FILE *file = fopen(path, "r"); //open /proc to read
-    if (!file) {
-        fprintf(stderr, "Error! Could not open %s! It may not exist or permission denied.\n", path);
+    if (args[1] == NULL) {
+        fprintf(stderr, "Error! Missing path for /proc command\n");
         return;
     }
 
-    char *line = NULL; //buffer for each line
-    size_t len = 0;
-    while (getline(&line, &len, file) != -1) {
-	printf("%s", line);  //print lines
+    char path[256];
+    snprintf(path, sizeof(path), "/proc/%s", args[1]);  //concatenate /proc with the argument
+
+    FILE *file = fopen(path, "r"); //open /proc file
+    if (!file) {
+        fprintf(stderr, "Error! Could not open %s\n", path);
+        return;
     }
 
-    fclose(file); //close the file
+    char *line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, file) != -1) {
+        printf("%s", line); //print each line of file
+    }
+
+    fclose(file); //close file
     free(line); //free allocated buffer
 }
 
 void add_to_history(char *command) {
     FILE *history_file = fopen(".421sh", "a"); //open file in append mode
     if (!history_file) {
-        fprintf(stderr, "Error! Could not open history file for writing!\n");
+        perror("Error! Could not open history file for writing");
         return;
     }
 
-    fprintf(history_file, "%s\n", command); //write command to file
-    fclose(history_file); //close file
+    if (fprintf(history_file, "%s\n", command) < 0) {
+        perror("Error! Could not write to history file");
+    }
+
+    if (fclose(history_file) != 0) {  //check if closing file failed
+        perror("Error! Could not close history file");
+    }
 }
 
 void display_history() {
     FILE *history_file = fopen(".421sh", "r"); //open file in read mode
     if (!history_file) {
-        fprintf(stderr, "Error! Could not open history file for reading!\n");
+        perror("Error! Could not open history file for reading");
         return;
     }
 
     char *line = NULL; //buffer for each command
     size_t len = 0; //length of buffer
     int count = 0; //counting number of commands
-    
+
     while (getline(&line, &len, history_file) != -1 && count < 10) { //read and display up to 10 lines
         printf("%s", line);
         count++;
     }
 
+    if (ferror(history_file)) {
+        perror("Error reading from history file");
+    }
+
     fclose(history_file); //close file
     free(line); //free allocated buffer
 }
-
-
