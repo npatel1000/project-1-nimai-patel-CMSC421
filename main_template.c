@@ -34,7 +34,9 @@ int main(int argc, char **argv)
     otherwise call the user_prompt_loop() function to get user input repeatedly 
     until the user enters the "exit" command.
     */
-
+    
+    (void)argv; //remove warning
+    
     if (argc > 1) { //check if more than 1 arguement is passed to shell
     	fprintf(stderr, "Arguments not supported. Exiting.\n"); //print error message
     	return 1;
@@ -109,20 +111,29 @@ void user_prompt_loop()
         printf(">> "); //print shell prompt
         command = get_user_command(); //get user command
 
-        if (!command) continue; //continue for empty inputs
+        if (!command || strlen(command) == 0 || strcmp(command, "\n") == 0) { //if input is empty (spaces and tabs)
+    		free(command);  //free memory for empty imputs
+    		continue;  //prompt again
+	}
 
         parsed_command = parse_command(command); //parse command into arguements
 
+        if (parsed_command[0] == NULL) {
+            free(command);  //free allocated memory
+            free(parsed_command);
+            continue;  //prompt again 
+        }
+
         if (strcmp(parsed_command[0], "exit") == 0) { //check built-in commands 
         	if (parsed_command[1]) {
-        		fprintf(stderr, "Invalid exit command. Usage: exit\n"); //print this if the command has arguments
+        		fprintf(stderr, "Invalid exit command! Try: exit\n"); //print this if the command has arguments
     		} else {
-        	free(command); //free allocated memory
-        	free(parsed_command);
-        	exit(0);  //exit shell
+        		free(command); //free allocated memory
+        		free(parsed_command);
+        		exit(0);  //exit shell
     		}
 	} else if (strncmp(parsed_command[0], "/proc", 5) == 0) { //if command starts with "/proc"
-            handle_proc_command(parsed_command); //reading "/proc" files
+		handle_proc_command(parsed_command); //reading "/proc" files
         } else {
             execute_command(parsed_command); //execute command
         }
@@ -182,14 +193,25 @@ char **parse_command(char *input)
     int pos = 0;
     int buffer_size = 10;  //set buffer size to 10
     char **tokens = malloc(sizeof(char *) * buffer_size); //allocate memory array
-    char *token = strtok(input, " "); //split input with spaces
+    if (!tokens) {  //check for malloc fail
+        fprintf(stderr, "Error! Memory allocation failed!\n");
+        return NULL;
+    }
 
-    while (token != NULL) { //cotinue splitting into tokens
-        tokens[pos++] = strdup(token); //copy tokens into array
+    char *token = strtok(input, " ");  //split input with spaces
 
-        if (pos >= buffer_size) { //reallocate memory if buffer size is exceeded
-            buffer_size += 10;  //increase buffer size by 10
-            tokens = realloc(tokens, sizeof(char *) * buffer_size);
+    while (token != NULL) {
+        tokens[pos++] = strdup(token);  //duplicate into arrays
+
+        if (pos >= buffer_size) { //if buffer size is exceeded, reallocate
+            buffer_size += 10;
+            char **new_tokens = realloc(tokens, sizeof(char *) * buffer_size);
+            if (!new_tokens) {  //check realloc
+                fprintf(stderr, "Error! Memory allocation failed!\n");
+                free(tokens);  //free allocated memory
+                return NULL;
+            }
+            tokens = new_tokens;  //assign new reallocated memory
         }
 
         token = strtok(NULL, " "); //get next token
@@ -220,38 +242,38 @@ void execute_command(char **args)
         }
         exit(EXIT_FAILURE); //exit child process
     } else if (pid < 0) {
-        //if error forking
-        perror("fork");
+        perror("fork"); //if error forking
     } else {
-        //parent process waits on child process
-        wait(NULL);
+        int status; //parent process waits on child process
+        waitpid(pid, &status, 0); //using waitpid for better control
     }
 }
 
 void handle_proc_command(char **args) {
     char path[256]; //file path buffer
+    
     snprintf(path, sizeof(path), "%s", args[0]); //create file path
 
     FILE *file = fopen(path, "r"); //open /proc to read
     if (!file) {
-        perror("fopen"); //error; file cannot be opened
+        fprintf(stderr, "Error! Could not open %s! It may not exist or permission denied.\n", path);
         return;
     }
 
-    char *line = NULL; //buffer for each line
-    size_t len = 0; //length of buffer
-    while (getline(&line, &len, file) != -1) { //read and print each line
-        printf("%s", line);
+    char *line = NULL; //read and print lines
+    size_t len = 0;
+    while (getline(&line, &len, file) != -1) {
+	printf("%s", line);  //print lines
     }
 
-    fclose(file); //close file
+    fclose(file); //close the file
     free(line); //free allocated buffer
 }
 
 void add_to_history(char *command) {
     FILE *history_file = fopen(".421sh", "a"); //open file in append mode
     if (!history_file) {
-        perror("fopen"); //error; file cannot be opened
+        fprintf(stderr, "Error! Could not open history file for writing!\n");
         return;
     }
 
@@ -262,7 +284,7 @@ void add_to_history(char *command) {
 void display_history() {
     FILE *history_file = fopen(".421sh", "r"); //open file in read mode
     if (!history_file) {
-        perror("fopen"); //error; file cannot be opened
+        fprintf(stderr, "Error! Could not open history file for reading!\n");
         return;
     }
 
